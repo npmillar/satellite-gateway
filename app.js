@@ -25,7 +25,7 @@ app.post('/chat', async (req, res) => {
     
     const payload = {
         system_instruction: {
-            parts: [{ text: "You are a concise off-grid assistant. Give accurate, highly compressed answers. Limit strictly to 1-2 sentences. No markdown." }]
+            parts: [{ text: "You are an off-grid assistant. Give accurate answers. Break responses into text sized chunks if required" }]
         },
         contents: [
             { parts: [{ text: incomingText }] }
