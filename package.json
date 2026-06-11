@@ -1,0 +1,12 @@
+{
+  "name": "satellite-gateway",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "twilio": "^5.0.0"
+  }
+}
