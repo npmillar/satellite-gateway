@@ -1,16 +1,25 @@
 const express = require('express');
-const { MessagingResponse } = require('twilio').twiml;
+const twilio = require('twilio');
 
 const app = express();
-// This tells the server how to read Twilio's incoming texts
 app.use(express.urlencoded({ extended: true }));
 
-// This is the pathway Twilio will target
+// Pulling your Twilio credentials securely from Render
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const client = twilio(accountSid, authToken);
+
 app.post('/chat', async (req, res) => {
-    const twiml = new MessagingResponse();
     const incomingText = req.body.Body || "Hello";
-    
-    // We use a hidden environment variable here so your key isn't public on GitHub!
+    const userPhone = req.body.From; // Your iPhone number
+    const twilioPhone = req.body.To; // Your Twilio number
+
+    // 1. Immediately send an empty 200 OK back to Twilio. 
+    // This instantly stops Twilio's 15-second kill switch.
+    res.set('Content-Type', 'text/xml');
+    res.status(200).send('<Response></Response>');
+
+    // 2. Run the heavy AI web search in the background
     const apiKey = process.env.GEMINI_API_KEY;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
     
@@ -22,7 +31,7 @@ app.post('/chat', async (req, res) => {
             { parts: [{ text: incomingText }] }
         ],
         tools: [
-            { googleSearch: {} } // Search Grounding is enabled
+            { googleSearch: {} } // Live web search enabled
         ]
     };
 
@@ -35,18 +44,23 @@ app.post('/chat', async (req, res) => {
 
         const data = await response.json();
         
+        let aiReply = "System Error: No text generated.";
         if (data.error) {
-            twiml.message(`API Error: ${data.error.message}`);
-        } else {
-            const aiReply = data.candidates[0].content.parts[0].text;
-            twiml.message(aiReply);
+            aiReply = `API Error: ${data.error.message}`;
+        } else if (data.candidates && data.candidates[0].content) {
+            aiReply = data.candidates[0].content.parts[0].text;
         }
+
+        // 3. Actively push the reply back to the iPhone as a new message
+        await client.messages.create({
+            body: aiReply,
+            from: twilioPhone,
+            to: userPhone
+        });
+
     } catch (error) {
-        twiml.message("System Error: Transmission failed.");
+        console.error("Transmission failed:", error);
     }
-    
-    // Package it as XML so Twilio understands the reply
-    res.type('text/xml').send(twiml.toString());
 });
 
 const PORT = process.env.PORT || 3000;
